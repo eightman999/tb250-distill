@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import random
 import sys
 from dataclasses import dataclass, field
@@ -432,18 +433,18 @@ IRRELEVANT = {
     ],
 }
 PREAMBLES = {
-    "ja": ["Navi は常駐エージェントとして、ユーザーの端末上で動いている。", "[Navi 観測ログ]", "常駐エージェント Navi の判断エンジンが入力を受け取った。"],
-    "en": ["Navi is a resident agent running on the user's device.", "[Navi observation log]", "The decision engine of the resident agent Navi received this input."],
+    "ja": ["__AGENT__ は常駐エージェントとして、ユーザーの端末上で動いている。", "[__AGENT__ 観測ログ]", "常駐エージェント __AGENT__ の判断エンジンが入力を受け取った。"],
+    "en": ["__AGENT__ is a resident agent running on the user's device.", "[__AGENT__ observation log]", "The decision engine of the resident agent __AGENT__ received this input."],
 }
 
 QUESTIONS = {
     "state": {
-        "ja": ["次の行動として最も適切なのはどれか。", "この状況で、Navi はどうすべきか。", "最善の判断を選べ。", "どの行動を取るべきか。"],
-        "en": ["Which action is the most appropriate next?", "What should Navi do in this situation?", "Choose the best decision.", "Which action should be taken?"],
+        "ja": ["次の行動として最も適切なのはどれか。", "この状況で、__AGENT__ はどうすべきか。", "最善の判断を選べ。", "どの行動を取るべきか。"],
+        "en": ["Which action is the most appropriate next?", "What should __AGENT__ do in this situation?", "Choose the best decision.", "Which action should be taken?"],
     },
     "gate": {
-        "ja": ["常駐エージェントとして今どう判断するか。", "この場面でNaviが取るべき対応はどれか。", "ゲート判断を選べ。"],
-        "en": ["As a resident agent, how should Navi decide right now?", "Which response should Navi take in this scene?", "Pick the gate decision."],
+        "ja": ["常駐エージェントとして今どう判断するか。", "この場面で__AGENT__が取るべき対応はどれか。", "ゲート判断を選べ。"],
+        "en": ["As a resident agent, how should __AGENT__ decide right now?", "Which response should __AGENT__ take in this scene?", "Pick the gate decision."],
     },
     "intent": {
         "ja": ["この依頼はどの機能で処理すべきか。", "ユーザーの意図に最も近いものを選べ。", "適切なルーティング先はどれか。"],
@@ -511,6 +512,33 @@ class Scn:
     cands: list  # list[CandSpec]（ベース順序）
     gold: int | None
 
+
+
+# 常駐エージェント名（テンプレート中の __AGENT__）。既定は中立名。既存 replay DB と同一の生成を再現する場合は
+# 生成時と同じ名前を --agent-name / 環境変数 SYNTH_AGENT_NAME で与える（data/ 側の記録を参照）。
+DEFAULT_AGENT_NAME = "Navi"
+_PREAMBLES_T = PREAMBLES
+_QUESTIONS_T = QUESTIONS
+
+
+def _sub_agent(obj, name: str):
+    if isinstance(obj, str):
+        return obj.replace("__AGENT__", name)
+    if isinstance(obj, dict):
+        return {k: _sub_agent(v, name) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sub_agent(v, name) for v in obj]
+    return obj
+
+
+def set_agent_name(name: str) -> None:
+    global PREAMBLES, QUESTIONS, AGENT_NAME
+    AGENT_NAME = name
+    PREAMBLES = _sub_agent(_PREAMBLES_T, name)
+    QUESTIONS = _sub_agent(_QUESTIONS_T, name)
+
+
+set_agent_name(os.environ.get("SYNTH_AGENT_NAME", DEFAULT_AGENT_NAME))
 
 def _filler_slots(rng: random.Random, L: str) -> dict:
     s = _num_slots(rng)
@@ -1430,9 +1458,12 @@ def main(argv=None) -> int:
     ap.add_argument("--test", type=int, default=1000)
     ap.add_argument("--robust-base", type=int, default=300, help="test から variant を作る元 item 数（×6 variant）")
     ap.add_argument("--seed", type=int, default=20261006)
+    ap.add_argument("--agent-name", default=None, help="テンプレート中の常駐エージェント名（既定: SYNTH_AGENT_NAME 環境変数か Navi）")
     ap.add_argument("--append-train", type=int, default=0,
                     help="既存 DB の train を N 件追加（50k/100k へ拡張）。val/test/robust は生成しない")
     args = ap.parse_args(argv)
+    if args.agent_name:
+        set_agent_name(args.agent_name)
 
     conn = replay.connect(args.db)
     existing = conn.execute("SELECT COUNT(*) FROM items").fetchone()[0]
