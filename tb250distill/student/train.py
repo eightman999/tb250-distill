@@ -59,11 +59,15 @@ def _run(cmd, cwd=None, timeout=20):
 
 
 def git_info():
-    """commit hash（git → 環境変数 TB250_GIT_COMMIT → <repo>/GIT_COMMIT の順）と diff。"""
+    """commit hash（環境変数 TB250_GIT_COMMIT → git → <repo>/GIT_COMMIT の順。coordinator と同じ優先順）と diff。"""
     info = {"commit": None, "source": None, "diff": None, "note": None}
+    env = os.environ.get("TB250_GIT_COMMIT")
+    if env and env.strip():
+        info["commit"], info["source"] = env.strip(), "env TB250_GIT_COMMIT"
     rc, out, _ = _run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT)
     if rc == 0 and out.strip():
-        info["commit"], info["source"] = out.strip(), "git"
+        if info["commit"] is None:
+            info["commit"], info["source"] = out.strip(), "git"
         rc2, d, _ = _run(["git", "diff", "HEAD"], cwd=REPO_ROOT)
         if rc2 == 0:
             info["diff"] = d
@@ -72,11 +76,8 @@ def git_info():
         if rc3 == 0:
             info["note"] = "git repo に commit が無い（HEAD 未解決）。status:\n" + st
     if info["commit"] is None:
-        env = os.environ.get("TB250_GIT_COMMIT")
         fp = os.path.join(REPO_ROOT, "GIT_COMMIT")
-        if env:
-            info["commit"], info["source"] = env.strip(), "env TB250_GIT_COMMIT"
-        elif os.path.isfile(fp):
+        if os.path.isfile(fp):
             info["commit"], info["source"] = open(fp).read().strip(), "GIT_COMMIT file"
     return info
 
