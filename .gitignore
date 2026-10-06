@@ -1,0 +1,9 @@
+# 生成物・派生データ（replay DB / shard / teacher 出力はライセンス上公開しない。docs/RELEASE_POLICY.md）
+/data/
+/runs/
+/models/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+/scripts/host.local
