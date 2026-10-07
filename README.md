@@ -98,6 +98,9 @@ python -m tb250distill.student.evaluate --backend cl --device "GT 730" --data da
 
 単体の学習は `python -m tb250distill.student.train --help` を参照してください（numpy backend `--backend np` なら GPU なしで動きます）。
 
+- llama.cpp の異種 GPU 投機的デコード（RX 6400 に本体、WX 2100 にドラフト）のベンチ: [docs/SPECBENCH.md](docs/SPECBENCH.md)。
+  `python -m tb250distill.specbench.run --plan main --out runs/specbench/<名前>`、集計は `python -m tb250distill.specbench.report <out>`。
+
 - 候補の意味表現の蒸留: `--sem-cand-weight` / `--sem-emb` / `--sem-loss` / `--sem-batch` を指定する。Teacher の埋め込みは `tb250distill.teacher.embed` で抽出する。
 - Wikipedia での LM 事前学習: `tb250distill.student.pretrain_lm`。
 
@@ -116,6 +119,7 @@ tb250distill/
   hw/        ハードウェア収集、OpenCL Gate test、amdgpu テレメトリ
   data/      合成データ、公開データ取得・変換、Wikipedia 前処理
   teacher/   llama-server 管理、候補採点、replay への生産、埋め込み抽出
+  specbench/ 異種 GPU 投機的デコードのベンチ（run / report / configs / prompts）
   student/   numpy / OpenCL backend、GRU モデル、学習・評価、意味表現蒸留、LM 事前学習
   replay.py  tokenize_data.py  coordinator.py  cascade.py  report.py  diag_sem.py
 tests/       単体テスト（勾配チェック、np/cl 一致、データ変換など）
